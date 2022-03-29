@@ -193,6 +193,20 @@ class Settings:
     instance = None
 
     @staticmethod
+    def _check_path_readability(path: str):
+        try:
+            path = pathlib.Path(path).resolve()
+            with path.open("r") as f:
+                _ = f.read(1)
+        except FileNotFoundError:
+            pass
+        # Only checks read and not write permission
+        except (PermissionError, OSError, UnicodeError):
+            return None
+        
+        return path
+
+    @staticmethod
     def get():
         if Settings.instance is None:
             Settings.instance = DefaultSettings()
@@ -431,26 +445,21 @@ class Settings:
 
     @unavailable_list.setter
     def unavailable_list(self, value):
-        # We're gonna trust the user not to output to a location without write permission
-        self._unavailable_list = pathlib.Path(value).resolve()
-    
+         path = Settings._check_path_readability(value)
+         if path is None:
+             raise ConfigurationError("can't access unavailable file") from None
+         self._unavailable_list = path
+
     @property
     def archive(self):
         return self._archive
 
     @archive.setter
     def archive(self, value):
-        path = pathlib.Path(value).resolve()
-        try:
-            with path.open("r") as f:
-                _ = f.read(1)
-        except FileNotFoundError:
-            pass
-        # Only checks read and not write permission
-        except (PermissionError, OSError, UnicodeError):
-            raise ConfigurationError("can't access archive file") from None
-
-        self._archive = path
+         path = Settings._check_path_readability(value)
+         if path is None:
+             raise ConfigurationError("can't access archive file") from None
+         self._archive = path
 
     @property
     def json(self):
